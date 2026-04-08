@@ -55,3 +55,9 @@ def validar_campos(nome, cargo, salario):
 
 def lista_para_dataframe(dados):
     return pd.DataFrame(dados, columns=["ID", "Nome", "Cargo", "Salario"])
+
+def log_erro(erro):
+    from datetime import datetime
+
+    with open("erros.log", "a", encoding="utf-8") as f:
+        f.write(f"{datetime.now()} - {str(erro)}\n")

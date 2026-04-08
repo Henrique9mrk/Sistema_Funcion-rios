@@ -1,63 +1,107 @@
 import streamlit as st
-import pandas as pd
 from database import *
 from utils import *
 
-st.set_page_config(layout="wide")
+st.set_page_config(page_title="Sistema de Funcionários", layout="wide")
 
+# Inicialização
 criar_tabela()
 
 st.title("📊 Sistema de Funcionários")
 
-menu = st.sidebar.selectbox("Menu", ["Dashboard", "Cadastrar"])
+menu = st.sidebar.selectbox("Menu", ["Dashboard", "Cadastrar", "Editar"])
 
 dados = listar()
-df = pd.DataFrame(dados, columns=["ID", "Nome", "Cargo", "Salario"])
+df = lista_para_dataframe(dados)
 
-# -------------------------
+# =========================
 # DASHBOARD
-# -------------------------
+# =========================
 if menu == "Dashboard":
 
-    col1, col2 = st.columns(2)
+    # Métricas
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.metric("Total Funcionários", len(df))
+        st.metric("Total de Funcionários", calcular_total(df))
 
     with col2:
-        if not df.empty:
-            st.metric("Média Salarial", f"R$ {df['Salario'].mean():.2f}")
+        st.metric("Média Salarial", formatar_salario(calcular_media(df)))
 
-    busca = st.text_input("Buscar funcionário")
+    with col3:
+        st.metric("Maior Salário", formatar_salario(maior_salario(df)))
 
-    if busca:
-        df = df[df["Nome"].str.contains(busca, case=False)]
+    # Busca
+    busca = st.text_input("🔍 Buscar funcionário")
+    df_filtrado = filtrar_nome(df, busca)
 
-    st.dataframe(df, use_container_width=True)
+    # Tabela
+    st.dataframe(df_filtrado, use_container_width=True)
 
-    st.subheader("Remover funcionário")
+    # Remoção
+    st.subheader("🗑️ Remover funcionário")
 
-    if not df.empty:
-        id_selecionado = st.selectbox("Selecione ID", df["ID"])
+    if not df_filtrado.empty:
+        id_sel = st.selectbox("Selecione o ID", df_filtrado["ID"])
 
         if st.button("Excluir"):
-            deletar(id_selecionado)
-            st.success("Removido com sucesso!")
+            sucesso = deletar(id_sel)
 
-# -------------------------
+            if sucesso:
+                st.success("Funcionário removido!")
+                st.rerun()
+            else:
+                st.error("Erro ao excluir funcionário.")
+    else:
+        st.info("Nenhum funcionário encontrado.")
+
+# =========================
 # CADASTRO
-# -------------------------
+# =========================
 elif menu == "Cadastrar":
 
-    st.subheader("Novo Funcionário")
+    st.subheader("➕ Novo Funcionário")
 
     nome = st.text_input("Nome")
     cargo = st.text_input("Cargo")
     salario = st.number_input("Salário", min_value=0.0)
 
     if st.button("Salvar"):
-        if nome and cargo:
-            adicionar(nome, cargo, salario)
-            st.success("Funcionário cadastrado!")
+        valido, msg = validar_campos(nome, cargo, salario)
+
+        if not valido:
+            st.warning(msg)
         else:
-            st.warning("Preencha todos os campos")
+            sucesso = adicionar(nome, cargo, salario)
+
+            if sucesso:
+                st.success("Cadastrado com sucesso!")
+                st.rerun()
+            else:
+                st.error("Erro ao cadastrar.")
+
+# =========================
+# EDIÇÃO
+# =========================
+elif menu == "Editar":
+
+    st.subheader("✏️ Editar Funcionário")
+
+    if not df.empty:
+        id_sel = st.selectbox("Selecione o ID", df["ID"])
+        funcionario = df[df["ID"] == id_sel].iloc[0]
+
+        nome = st.text_input("Nome", funcionario["Nome"])
+        cargo = st.text_input("Cargo", funcionario["Cargo"])
+        salario = st.number_input("Salário", value=float(funcionario["Salario"]))
+
+        if st.button("Atualizar"):
+            sucesso = atualizar(id_sel, nome, cargo, salario)
+
+            if sucesso:
+                st.success("Atualizado com sucesso!")
+                st.rerun()
+            else:
+                st.error("Erro ao atualizar.")
+    else:
+        st.info("Nenhum funcionário cadastrado.")
